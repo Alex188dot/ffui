@@ -19,10 +19,10 @@ export function TopBar({ toolStatus, onAddFiles, onAddFolder, onRun, onSavePrese
             ffui desktop
           </div>
           <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Make ffmpeg feel like a candy-colored power tool.
+            Turn messy media conversions into something fast, visual, and actually fun.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200/85 sm:text-base">
-            Queue files, pick an intent-first preset, tweak a few knobs, inspect the real command, and run conversions without living in terminal flag soup.
+            Drop in your files, pick a preset, and turn videos, audio, and clips into polished exports in seconds.
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -79,8 +79,8 @@ function ActionButton({
           : "border-white/15 bg-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] hover:border-white/25 hover:bg-white/16"
       }`}
     >
-      <span className="flex items-start gap-3">
-        <span className="mt-0.5 text-lg transition group-hover:scale-110">{icon}</span>
+      <span className="flex flex-col items-center justify-center gap-2 text-center">
+        <span className="text-2xl leading-none transition group-hover:scale-110">{icon}</span>
         <span className="text-base font-semibold tracking-[-0.02em]">{label}</span>
       </span>
     </button>
