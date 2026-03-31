@@ -1,0 +1,21 @@
+[package]
+name = "ffui-desktop"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "ffui_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.1.0", features = [] }
+
+[dependencies]
+directories = "5.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tauri = { version = "2.1.1", features = [] }
+tauri-plugin-dialog = "2.2.0"
+thiserror = "2.0"
+tokio = { version = "1.48", features = ["process", "io-util", "rt-multi-thread", "macros"] }
+uuid = { version = "1.10", features = ["v4", "serde"] }
