@@ -21,6 +21,9 @@ export function InspectorPanel({ item, builtInPresets, userPresets, onChange }: 
   }
 
   const config = item.config;
+  const showVideoControls = config.input.kind === "Video";
+  const showAudioControls = config.input.kind === "Audio" || config.jobType === "AudioConvert" || config.jobType === "ExtractAudio";
+  const isGifJob = config.jobType === "MakeGif" || config.videoFormat === "Gif";
 
   return (
     <SectionCard title="Inspector" eyebrow="Options">
@@ -66,47 +69,109 @@ export function InspectorPanel({ item, builtInPresets, userPresets, onChange }: 
         <EnumSelectRow label="Job type" value={config.jobType} options={jobTypes} renderValue={(value) => labels.jobType[value]} onChange={(jobType) => onChange({ ...config, jobType })} />
         <EnumSelectRow label="Quality" value={config.quality} options={qualityProfiles} renderValue={(value) => labels.quality[value]} onChange={(quality) => onChange({ ...config, quality })} />
         <EnumSelectRow label="Target" value={config.target} options={targetProfiles} renderValue={(value) => labels.target[value]} onChange={(target) => onChange({ ...config, target })} />
-        <EnumSelectRow label="Video format" value={config.videoFormat} options={videoFormats} renderValue={(value) => labels.videoFormat[value]} onChange={(videoFormat) => onChange({ ...config, videoFormat })} />
-        <EnumSelectRow label="Audio format" value={config.audioFormat} options={audioFormats} renderValue={(value) => labels.audioFormat[value]} onChange={(audioFormat) => onChange({ ...config, audioFormat })} />
-        <EnumSelectRow label="Resize" value={config.resize} options={resizePresets} renderValue={(value) => labels.resize[value]} onChange={(resize) => onChange({ ...config, resize })} />
+        {showVideoControls ? (
+          <EnumSelectRow label="Video format" value={config.videoFormat} options={videoFormats} renderValue={(value) => labels.videoFormat[value]} onChange={(videoFormat) => onChange({ ...config, videoFormat })} />
+        ) : null}
+        {showAudioControls ? (
+          <EnumSelectRow label="Audio format" value={config.audioFormat} options={audioFormats} renderValue={(value) => labels.audioFormat[value]} onChange={(audioFormat) => onChange({ ...config, audioFormat })} />
+        ) : null}
+        {showVideoControls ? (
+          <EnumSelectRow label="Resize" value={config.resize} options={resizePresets} renderValue={(value) => labels.resize[value]} onChange={(resize) => onChange({ ...config, resize })} />
+        ) : null}
 
-        <div className="grid gap-2 rounded-2xl bg-white/5 p-4">
-          <label className="text-xs uppercase tracking-[0.25em] text-slate-400">Trim start</label>
-          <input
-            type="number"
-            min={0}
-            value={config.trim?.startSeconds ?? 0}
-            onChange={(event) =>
-              onChange({
-                ...config,
-                trim: {
-                  startSeconds: Number(event.target.value),
-                  durationSeconds: config.trim?.durationSeconds ?? 15,
-                },
-              })
-            }
-            className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none ring-0"
-          />
-        </div>
+        {config.input.kind === "Video" ? (
+          <>
+            <div className="grid gap-2 rounded-2xl bg-white/5 p-4">
+              <label className="text-xs uppercase tracking-[0.25em] text-slate-400">Trim start</label>
+              <input
+                type="number"
+                min={0}
+                value={config.trim?.startSeconds ?? 0}
+                onChange={(event) =>
+                  onChange({
+                    ...config,
+                    trim: {
+                      startSeconds: Number(event.target.value),
+                      durationSeconds: config.trim?.durationSeconds ?? 15,
+                    },
+                  })
+                }
+                className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none ring-0"
+              />
+            </div>
 
-        <div className="grid gap-2 rounded-2xl bg-white/5 p-4">
-          <label className="text-xs uppercase tracking-[0.25em] text-slate-400">Trim duration</label>
-          <input
-            type="number"
-            min={1}
-            value={config.trim?.durationSeconds ?? 15}
-            onChange={(event) =>
-              onChange({
-                ...config,
-                trim: {
-                  startSeconds: config.trim?.startSeconds ?? 0,
-                  durationSeconds: Math.max(1, Number(event.target.value)),
-                },
-              })
-            }
-            className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none ring-0"
-          />
-        </div>
+            <div className="grid gap-2 rounded-2xl bg-white/5 p-4">
+              <label className="text-xs uppercase tracking-[0.25em] text-slate-400">Trim duration</label>
+              <input
+                type="number"
+                min={1}
+                value={config.trim?.durationSeconds ?? 15}
+                onChange={(event) =>
+                  onChange({
+                    ...config,
+                    trim: {
+                      startSeconds: config.trim?.startSeconds ?? 0,
+                      durationSeconds: Math.max(1, Number(event.target.value)),
+                    },
+                  })
+                }
+                className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none ring-0"
+              />
+            </div>
+          </>
+        ) : null}
+
+        <details className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 open:bg-slate-950/70" open>
+          <summary className="cursor-pointer list-none text-sm font-semibold text-white">
+            Advanced
+          </summary>
+          <div className="mt-4 grid gap-4">
+            {showAudioControls ? (
+              <div className="grid gap-2 rounded-2xl bg-white/5 p-4">
+                <label className="text-xs uppercase tracking-[0.25em] text-slate-400">Audio bitrate</label>
+                <input
+                  type="number"
+                  min={64}
+                  step={16}
+                  value={config.audioBitrateKbps}
+                  onChange={(event) =>
+                    onChange({
+                      ...config,
+                      audioBitrateKbps: Math.max(64, Number(event.target.value)),
+                    })
+                  }
+                  className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none ring-0"
+                />
+              </div>
+            ) : null}
+
+            {isGifJob ? (
+              <div className="grid gap-2 rounded-2xl bg-white/5 p-4">
+                <label className="text-xs uppercase tracking-[0.25em] text-slate-400">GIF FPS</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={config.gifFps}
+                  onChange={(event) =>
+                    onChange({
+                      ...config,
+                      gifFps: Math.min(60, Math.max(1, Number(event.target.value))),
+                    })
+                  }
+                  className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none ring-0"
+                />
+              </div>
+            ) : null}
+
+            <div className="rounded-2xl bg-slate-950/80 p-4">
+              <div className="text-xs uppercase tracking-[0.25em] text-slate-400">Command preview</div>
+              <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-all text-sm leading-7 text-emerald-200">
+                {item.command.rendered}
+              </pre>
+            </div>
+          </div>
+        </details>
       </div>
     </SectionCard>
   );

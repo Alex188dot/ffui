@@ -14,6 +14,7 @@ function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
+  const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
 
   useEffect(() => {
     api.bootstrap().then(setBootstrap).catch((error) => {
@@ -38,11 +39,15 @@ function App() {
         setLogs((current) =>
           [`[${payload.index + 1}] ${payload.state}${payload.message ? `: ${payload.message}` : ""}`, ...current].slice(0, 60),
         );
-        setItems((current) =>
-          current.map((item, index) =>
+        setItems((current) => {
+          const next = current.map((item, index) =>
             index === payload.index ? { ...item, state: payload.state, lastLog: payload.message } : item,
-          ),
-        );
+          );
+          if (payload.index >= 0 && payload.state === "Succeeded") {
+            setLastCompletedId(next[payload.index]?.id ?? null);
+          }
+          return next;
+        });
         if (payload.index === -1) {
           setRunning(false);
         }
@@ -57,6 +62,7 @@ function App() {
   }, []);
 
   const selectedItem = items.find((item) => item.id === selectedId) ?? null;
+  const lastCompletedItem = items.find((item) => item.id === lastCompletedId) ?? null;
   const currentPercent = useMemo(() => {
     if (items.length === 0) return null;
     const values = items.map((item) => item.progressPercent ?? 0);
@@ -98,6 +104,7 @@ function App() {
 
   async function runQueue() {
     if (items.length === 0) return;
+    setLastCompletedId(null);
     setRunning(true);
     await api.runQueue(items.map((item) => item.config));
   }
@@ -105,7 +112,19 @@ function App() {
   async function updateSelected(config: JobConfig) {
     if (!selectedItem) return;
     const refreshed = await api.refreshPreview(config);
-    setItems((current) => current.map((item) => (item.id === selectedItem.id ? { ...refreshed, state: item.state, progressPercent: item.progressPercent, lastLog: item.lastLog } : item)));
+    setItems((current) =>
+      current.map((item) =>
+        item.id === selectedItem.id
+          ? {
+              ...refreshed,
+              id: item.id,
+              state: item.state,
+              progressPercent: item.progressPercent,
+              lastLog: item.lastLog,
+            }
+          : item,
+      ),
+    );
   }
 
   function appendItems(next: QueueItemPreview[]) {
@@ -141,7 +160,7 @@ function App() {
           <PreviewPanel item={selectedItem} />
         </div>
 
-        <ProgressPanel isRunning={running} percent={currentPercent} logs={logs} />
+        <ProgressPanel isRunning={running} percent={currentPercent} logs={logs} completedItem={lastCompletedItem} />
       </div>
     </div>
   );
