@@ -24,6 +24,7 @@ export function InspectorPanel({ item, builtInPresets, userPresets, onChange }: 
   const showVideoControls = config.input.kind === "Video";
   const showAudioControls = config.input.kind === "Audio" || config.jobType === "AudioConvert" || config.jobType === "ExtractAudio";
   const isGifJob = config.jobType === "MakeGif" || config.videoFormat === "Gif";
+  const trimEnabled = config.trim !== null;
 
   return (
     <SectionCard title="Inspector" eyebrow="Options">
@@ -66,7 +67,22 @@ export function InspectorPanel({ item, builtInPresets, userPresets, onChange }: 
           }}
         />
 
-        <EnumSelectRow label="Job type" value={config.jobType} options={jobTypes} renderValue={(value) => labels.jobType[value]} onChange={(jobType) => onChange({ ...config, jobType })} />
+        <EnumSelectRow
+          label="Job type"
+          value={config.jobType}
+          options={jobTypes}
+          renderValue={(value) => labels.jobType[value]}
+          onChange={(jobType) =>
+            onChange({
+              ...config,
+              jobType,
+              trim:
+                jobType === "MakeGif"
+                  ? config.trim ?? { startSeconds: 0, durationSeconds: 15 }
+                  : config.trim,
+            })
+          }
+        />
         <EnumSelectRow label="Quality" value={config.quality} options={qualityProfiles} renderValue={(value) => labels.quality[value]} onChange={(quality) => onChange({ ...config, quality })} />
         <EnumSelectRow label="Target" value={config.target} options={targetProfiles} renderValue={(value) => labels.target[value]} onChange={(target) => onChange({ ...config, target })} />
         {showVideoControls ? (
@@ -81,8 +97,33 @@ export function InspectorPanel({ item, builtInPresets, userPresets, onChange }: 
 
         {config.input.kind === "Video" ? (
           <>
+            <label className="flex items-center justify-between gap-4 rounded-2xl bg-white/5 p-4">
+              <div className="grid gap-1">
+                <span className="text-xs uppercase tracking-[0.25em] text-slate-400">Trim clip</span>
+                <span className="text-sm leading-6 text-slate-300/85">
+                  Export only a slice of the source instead of the full file. Useful for GIFs and short test clips.
+                </span>
+              </div>
+              <input
+                type="checkbox"
+                checked={trimEnabled}
+                onChange={(event) =>
+                  onChange({
+                    ...config,
+                    trim: event.target.checked ? config.trim ?? { startSeconds: 0, durationSeconds: 15 } : null,
+                  })
+                }
+                className="h-5 w-5 rounded border-white/20 bg-slate-950/60"
+              />
+            </label>
+
+            {trimEnabled ? (
+              <>
             <div className="grid gap-2 rounded-2xl bg-white/5 p-4">
               <label className="text-xs uppercase tracking-[0.25em] text-slate-400">Trim start</label>
+              <p className="text-sm leading-6 text-slate-300/80">
+                Start the export from this second in the original file. `0` means from the beginning.
+              </p>
               <input
                 type="number"
                 min={0}
@@ -102,6 +143,9 @@ export function InspectorPanel({ item, builtInPresets, userPresets, onChange }: 
 
             <div className="grid gap-2 rounded-2xl bg-white/5 p-4">
               <label className="text-xs uppercase tracking-[0.25em] text-slate-400">Trim duration</label>
+              <p className="text-sm leading-6 text-slate-300/80">
+                Keep this many seconds after the trim start. A value of `15` exports a 15-second segment.
+              </p>
               <input
                 type="number"
                 min={1}
@@ -118,6 +162,8 @@ export function InspectorPanel({ item, builtInPresets, userPresets, onChange }: 
                 className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none ring-0"
               />
             </div>
+              </>
+            ) : null}
           </>
         ) : null}
 

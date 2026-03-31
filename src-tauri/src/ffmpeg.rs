@@ -166,10 +166,7 @@ async fn default_config(mut input: InputSource) -> Result<JobConfig, AppError> {
         video_format: VideoFormat::Mp4H264,
         audio_format: AudioFormat::Mp3,
         resize: ResizePreset::P1080,
-        trim: Some(crate::models::TrimRange {
-            start_seconds: 0,
-            duration_seconds: 15,
-        }),
+        trim: None,
         audio_bitrate_kbps: 192,
         gif_fps: 12,
         preset_name: None,
@@ -344,23 +341,23 @@ fn build_command(config: &JobConfig, output: &OutputPlan) -> GeneratedCommand {
         "-i".to_string(),
         config.input.path.clone(),
     ];
+    if let Some(trim) = &config.trim {
+        args.splice(
+            0..0,
+            vec![
+                "-ss".to_string(),
+                trim.start_seconds.to_string(),
+                "-t".to_string(),
+                trim.duration_seconds.to_string(),
+            ],
+        );
+    }
     match config.job_type {
         JobType::AudioConvert | JobType::ExtractAudio => {
             args.push("-vn".to_string());
             apply_audio(&mut args, config);
         }
         JobType::TrimClip => {
-            if let Some(trim) = &config.trim {
-                args.splice(
-                    0..0,
-                    vec![
-                        "-ss".to_string(),
-                        trim.start_seconds.to_string(),
-                        "-t".to_string(),
-                        trim.duration_seconds.to_string(),
-                    ],
-                );
-            }
             apply_video(&mut args, config);
         }
         JobType::MakeGif => {
