@@ -15,6 +15,7 @@ function App() {
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
+  const [hasLaunchedRun, setHasLaunchedRun] = useState(false);
 
   useEffect(() => {
     api.bootstrap().then(setBootstrap).catch((error) => {
@@ -105,6 +106,7 @@ function App() {
   async function runQueue() {
     if (items.length === 0) return;
     setLastCompletedId(null);
+    setHasLaunchedRun(true);
     setRunning(true);
     await api.runQueue(items.map((item) => item.config));
   }
@@ -137,6 +139,17 @@ function App() {
     });
   }
 
+  function resetRun() {
+    setItems([]);
+    setSelectedId(null);
+    setLogs([]);
+    setRunning(false);
+    setLastCompletedId(null);
+    setHasLaunchedRun(false);
+  }
+
+  const showProgressFirst = hasLaunchedRun || running;
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.18),transparent_25%),radial-gradient(circle_at_right,_rgba(244,114,182,0.16),transparent_22%),linear-gradient(180deg,#020617_0%,#0f172a_45%,#111827_100%)] px-4 py-6 text-white sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -149,6 +162,17 @@ function App() {
           isRunning={running}
         />
 
+        {showProgressFirst ? (
+          <ProgressPanel
+            isRunning={running}
+            percent={currentPercent}
+            logs={logs}
+            completedItem={lastCompletedItem}
+            onReset={resetRun}
+            canReset={!running && (items.length > 0 || logs.length > 0 || hasLaunchedRun)}
+          />
+        ) : null}
+
         <div className="grid gap-6 xl:grid-cols-[1.05fr_1fr_1.15fr]">
           <QueuePanel items={items} selectedId={selectedId} onSelect={setSelectedId} />
           <InspectorPanel
@@ -160,7 +184,16 @@ function App() {
           <PreviewPanel item={selectedItem} />
         </div>
 
-        <ProgressPanel isRunning={running} percent={currentPercent} logs={logs} completedItem={lastCompletedItem} />
+        {!showProgressFirst ? (
+          <ProgressPanel
+            isRunning={running}
+            percent={currentPercent}
+            logs={logs}
+            completedItem={lastCompletedItem}
+            onReset={resetRun}
+            canReset={!running && (items.length > 0 || logs.length > 0)}
+          />
+        ) : null}
       </div>
     </div>
   );

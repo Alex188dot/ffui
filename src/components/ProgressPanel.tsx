@@ -7,11 +7,27 @@ interface ProgressPanelProps {
   percent: number | null;
   logs: string[];
   completedItem: QueueItemPreview | null;
+  onReset: () => void;
+  canReset: boolean;
 }
 
-export function ProgressPanel({ isRunning, percent, logs, completedItem }: ProgressPanelProps) {
+export function ProgressPanel({ isRunning, percent, logs, completedItem, onReset, canReset }: ProgressPanelProps) {
   return (
-    <SectionCard title="Run Console" eyebrow="Execution">
+    <SectionCard
+      title="Run Console"
+      eyebrow="Execution"
+      actions={
+        canReset ? (
+          <button
+            type="button"
+            onClick={onReset}
+            className="rounded-full border border-white/15 bg-white/8 px-4 py-2 text-sm font-medium text-white transition hover:border-white/25 hover:bg-white/14"
+          >
+            Reset for New Run
+          </button>
+        ) : null
+      }
+    >
       <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
         <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-fuchsia-500/15 via-cyan-500/10 to-amber-400/10 p-5">
           <div className="text-xs uppercase tracking-[0.25em] text-slate-300">Queue status</div>

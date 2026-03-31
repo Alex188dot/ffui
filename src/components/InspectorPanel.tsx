@@ -34,6 +34,7 @@ export function InspectorPanel({ item, builtInPresets, userPresets, onChange }: 
           value={config.presetName ?? ""}
           options={["", ...builtInPresets.map((preset) => preset.name)]}
           renderValue={(value) => value || "None"}
+          emphasis="feature"
           onChange={(name) => {
             const preset = builtInPresets.find((candidate) => candidate.name === name);
             if (!preset) {
@@ -229,20 +230,32 @@ function SelectRow<T extends string>({
   options,
   renderValue,
   onChange,
+  emphasis = "default",
 }: {
   label: string;
   value: T | "";
   options: (T | "")[];
   renderValue: (value: T) => string;
   onChange: (value: T | "") => void;
+  emphasis?: "default" | "feature";
 }) {
   return (
-    <label className="grid gap-2 rounded-2xl bg-white/5 p-4">
-      <span className="text-xs uppercase tracking-[0.25em] text-slate-400">{label}</span>
+    <label
+      className={`grid gap-2 rounded-2xl p-4 ${
+        emphasis === "feature"
+          ? "border border-cyan-300/20 bg-gradient-to-br from-cyan-400/12 via-slate-900/92 to-slate-900/96 shadow-[0_0_0_1px_rgba(103,232,249,0.08)]"
+          : "bg-white/5"
+      }`}
+    >
+      <span className={`text-xs uppercase tracking-[0.25em] ${emphasis === "feature" ? "text-cyan-200" : "text-slate-400"}`}>{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value as T | "")}
-        className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none"
+        className={`rounded-xl px-3 py-2 text-sm text-white outline-none ${
+          emphasis === "feature"
+            ? "border border-cyan-300/20 bg-slate-950/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+            : "border border-white/10 bg-slate-950/60"
+        }`}
       >
         {options.map((option) => (
           <option key={option || "empty"} value={option}>
