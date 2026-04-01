@@ -25,17 +25,19 @@ export function TopBar({
     <header className="relative overflow-hidden rounded-[36px] border border-white/15 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.22),_transparent_35%),radial-gradient(circle_at_top_right,_rgba(251,146,60,0.2),_transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(49,46,129,0.78))] p-8 text-white shadow-[0_30px_120px_-40px_rgba(14,116,144,0.75)]">
       <div className="absolute inset-y-0 right-[-6rem] w-72 rounded-full bg-pink-500/10 blur-3xl" />
       <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-3xl">
+        <div className="max-w-4xl lg:max-w-[50rem]">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">
             ffui desktop
           </div>
-          <h1 className="mt-5 text-[2.15rem] font-semibold tracking-tight sm:text-[2.85rem]">
-            Turn messy media conversions into something fast, visual, and
-            actually fun
+          <h1 className="mt-5 text-[2.15rem] font-semibold leading-[1.08] tracking-tight sm:text-[2.85rem]">
+            Turn media conversion
+            <br className="hidden lg:block" />
+            <span className="lg:hidden"> </span>
+            into something fast and fun
           </h1>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200/85 sm:text-base">
-            Drop in your files, pick a preset, and turn videos, audio, and clips
-            into polished exports in seconds
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-200/85 sm:text-base lg:max-w-none lg:whitespace-nowrap">
+            Drop in your files, pick a preset and turn videos, audio and clips
+            into exports in seconds
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

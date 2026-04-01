@@ -9,7 +9,12 @@ interface QueuePanelProps {
   onRemove: (id: string) => void;
 }
 
-export function QueuePanel({ items, selectedId, onSelect, onRemove }: QueuePanelProps) {
+export function QueuePanel({
+  items,
+  selectedId,
+  onSelect,
+  onRemove,
+}: QueuePanelProps) {
   return (
     <SectionCard title="Queue" eyebrow="Inputs">
       <div className="space-y-3">
@@ -31,8 +36,12 @@ export function QueuePanel({ items, selectedId, onSelect, onRemove }: QueuePanel
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <div className="text-xs uppercase tracking-[0.25em] text-slate-400">#{String(index + 1).padStart(2, "0")}</div>
-                    <div className="mt-1 text-sm font-semibold text-white">{fileName(item.config.input.path)}</div>
+                    <div className="text-xs uppercase tracking-[0.25em] text-slate-400">
+                      #{String(index + 1).padStart(2, "0")}
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-white">
+                      {fileName(item.config.input.path)}
+                    </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <button
@@ -46,22 +55,26 @@ export function QueuePanel({ items, selectedId, onSelect, onRemove }: QueuePanel
                     >
                       -
                     </button>
-                    <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      item.state === "Succeeded"
-                        ? "bg-emerald-400/15 text-emerald-200"
-                        : item.state === "Cancelled"
-                          ? "bg-slate-300/15 text-slate-200"
-                        : item.state === "Failed"
-                          ? "bg-rose-400/15 text-rose-200"
-                          : item.state === "Running"
-                            ? "bg-amber-400/15 text-amber-200"
-                            : "bg-white/10 text-slate-200"
-                    }`}>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        item.state === "Succeeded"
+                          ? "bg-emerald-400/15 text-emerald-200"
+                          : item.state === "Cancelled"
+                            ? "bg-slate-300/15 text-slate-200"
+                            : item.state === "Failed"
+                              ? "bg-rose-400/15 text-rose-200"
+                              : item.state === "Running"
+                                ? "bg-amber-400/15 text-amber-200"
+                                : "bg-white/10 text-slate-200"
+                      }`}
+                    >
                       {item.state}
                     </span>
                   </div>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-300/85">{item.summary}</p>
+                <p className="mt-3 text-sm leading-6 text-slate-300/85">
+                  {item.summary}
+                </p>
               </button>
             );
           })
@@ -74,7 +87,7 @@ export function QueuePanel({ items, selectedId, onSelect, onRemove }: QueuePanel
 function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-6 text-sm leading-7 text-slate-300/75">
-      Start by adding one or more files. Folder intake expands recursively and prepares batch-ready jobs automatically.
+      Start by adding one or more files
     </div>
   );
 }

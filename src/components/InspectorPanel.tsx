@@ -32,7 +32,7 @@ export function InspectorPanel({
     return (
       <SectionCard title="Inspector" eyebrow="Options">
         <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-slate-300/75">
-          Select a queue item to tweak presets, formats, and trim settings.
+          Add one or more items to the queue first
         </div>
       </SectionCard>
     );

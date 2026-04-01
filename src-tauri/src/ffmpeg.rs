@@ -363,10 +363,34 @@ fn resolve_binary(name: &str) -> Option<PathBuf> {
     }
 
     candidates.dedup();
-    candidates
-        .into_iter()
-        .map(|path| path.join(name))
-        .find(|candidate| candidate.is_file())
+
+    #[cfg(target_os = "windows")]
+    let names: Vec<String> = {
+        let mut variants = vec![name.to_string()];
+        if Path::new(name).extension().is_none() {
+            let path_ext = std::env::var_os("PATHEXT")
+                .unwrap_or(".COM;.EXE;.BAT;.CMD".into())
+                .to_string_lossy()
+                .to_string();
+            for ext in path_ext.split(';').filter(|ext| !ext.is_empty()) {
+                variants.push(format!("{name}{ext}"));
+                variants.push(format!("{name}{}", ext.to_ascii_lowercase()));
+            }
+        }
+        variants.sort();
+        variants.dedup();
+        variants
+    };
+
+    #[cfg(not(target_os = "windows"))]
+    let names = vec![name.to_string()];
+
+    candidates.into_iter().find_map(|dir| {
+        names
+            .iter()
+            .map(|binary| dir.join(binary))
+            .find(|candidate| candidate.is_file())
+    })
 }
 
 fn resolve_required_binary(name: &str) -> Result<PathBuf, AppError> {
