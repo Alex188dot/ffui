@@ -16,6 +16,10 @@ function App() {
   const [running, setRunning] = useState(false);
   const [lastCompletedId, setLastCompletedId] = useState<string | null>(null);
   const [hasLaunchedRun, setHasLaunchedRun] = useState(false);
+  const [presetDraftName, setPresetDraftName] = useState("");
+  const [presetDialogOpen, setPresetDialogOpen] = useState(false);
+  const [presetDialogError, setPresetDialogError] = useState<string | null>(null);
+  const [savingPreset, setSavingPreset] = useState(false);
 
   useEffect(() => {
     api.bootstrap().then(setBootstrap).catch((error) => {
@@ -139,12 +143,43 @@ function App() {
     await appendItems(next);
   }
 
+  function openSavePresetDialog() {
+    if (!selectedItem) return;
+    const suggestedName =
+      selectedItem.config.presetName ||
+      `${selectedItem.config.input.path.split(/[\\/]/).pop() ?? "Preset"} preset`;
+    setPresetDraftName(suggestedName);
+    setPresetDialogError(null);
+    setPresetDialogOpen(true);
+  }
+
+  function closeSavePresetDialog() {
+    if (savingPreset) return;
+    setPresetDialogOpen(false);
+    setPresetDialogError(null);
+  }
+
   async function savePreset() {
     if (!selectedItem) return;
-    const name = window.prompt("Preset name");
-    if (!name) return;
-    const userPresets = await api.saveUserPreset(name, selectedItem.config);
-    setBootstrap((current) => (current ? { ...current, userPresets } : current));
+    const trimmedName = presetDraftName.trim();
+    if (!trimmedName) {
+      setPresetDialogError("Enter a preset name.");
+      return;
+    }
+    try {
+      setSavingPreset(true);
+      const userPresets = await api.saveUserPreset(trimmedName, selectedItem.config);
+      setBootstrap((current) => (current ? { ...current, userPresets } : current));
+      setPresetDialogOpen(false);
+      setPresetDialogError(null);
+      setLogs((current) => [`Saved preset: ${trimmedName}`, ...current].slice(0, 60));
+    } catch (error) {
+      const message = `Failed to save preset: ${String(error)}`;
+      setPresetDialogError(message);
+      setLogs((current) => [message, ...current].slice(0, 60));
+    } finally {
+      setSavingPreset(false);
+    }
   }
 
   async function runQueue() {
@@ -200,6 +235,19 @@ function App() {
     setSelectedId((current) => current ?? nextItems[0]?.id ?? null);
   }
 
+  async function removeItem(id: string) {
+    const nextItems = items.filter((item) => item.id !== id);
+    if (nextItems.length === 0) {
+      setItems([]);
+      setSelectedId(null);
+      return;
+    }
+    if (selectedId === id) {
+      setSelectedId(nextItems[0]?.id ?? null);
+    }
+    await replanQueue(nextItems);
+  }
+
   function resetRun() {
     setItems([]);
     setSelectedId(null);
@@ -219,9 +267,10 @@ function App() {
           onAddFiles={() => void addFiles()}
           onAddFolder={() => void addFolder()}
           onRunOrStop={() => void (running ? stopQueue() : runQueue())}
-          onSavePreset={() => void savePreset()}
+          onSavePreset={openSavePresetDialog}
           isRunning={running}
           canRun={items.length > 0}
+          canSavePreset={selectedItem !== null}
         />
 
         {showProgressFirst ? (
@@ -238,7 +287,7 @@ function App() {
         ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[1.05fr_1fr_1.15fr]">
-          <QueuePanel items={items} selectedId={selectedId} onSelect={setSelectedId} />
+          <QueuePanel items={items} selectedId={selectedId} onSelect={setSelectedId} onRemove={(id) => void removeItem(id)} />
           <InspectorPanel
             item={selectedItem}
             builtInPresets={bootstrap?.builtInPresets ?? []}
@@ -261,6 +310,16 @@ function App() {
           />
         ) : null}
       </div>
+      {presetDialogOpen ? (
+        <SavePresetDialog
+          value={presetDraftName}
+          error={presetDialogError}
+          saving={savingPreset}
+          onChange={setPresetDraftName}
+          onCancel={closeSavePresetDialog}
+          onSubmit={() => void savePreset()}
+        />
+      ) : null}
     </div>
   );
 }
@@ -268,6 +327,75 @@ function App() {
 function normalizeSelection(selection: string | string[] | null): string[] {
   if (!selection) return [];
   return Array.isArray(selection) ? selection : [selection];
+}
+
+function SavePresetDialog({
+  value,
+  error,
+  saving,
+  onChange,
+  onCancel,
+  onSubmit,
+}: {
+  value: string;
+  error: string | null;
+  saving: boolean;
+  onChange: (value: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[28px] border border-white/12 bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(17,24,39,0.96))] p-6 shadow-[0_30px_120px_-40px_rgba(14,116,144,0.75)]">
+        <div className="text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">Custom Preset</div>
+        <h2 className="mt-3 text-2xl font-semibold text-white">Save Current Settings</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-300/85">
+          Give this preset a name so you can reapply the same conversion settings later.
+        </p>
+
+        <label className="mt-5 block">
+          <span className="text-xs uppercase tracking-[0.25em] text-slate-400">Preset name</span>
+          <input
+            autoFocus
+            type="text"
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onSubmit();
+              if (event.key === "Escape") onCancel();
+            }}
+            className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-300/50"
+            placeholder="My favorite export"
+          />
+        </label>
+
+        {error ? (
+          <div className="mt-3 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+            {error}
+          </div>
+        ) : null}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="rounded-full border border-white/12 bg-white/6 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-white/20 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={saving}
+            className="rounded-full border border-cyan-200/45 bg-gradient-to-br from-cyan-400/20 via-sky-400/10 to-fuchsia-400/16 px-4 py-2 text-sm font-medium text-white transition hover:border-cyan-200/70 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Save Preset"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default App;
