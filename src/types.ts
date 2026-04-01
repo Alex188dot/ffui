@@ -15,7 +15,7 @@ export type TargetProfile = "Web" | "Apple" | "Universal" | "Discord" | "Email";
 export type VideoFormat = "Mp4H264" | "Mp4Hevc" | "Gif";
 export type AudioFormat = "Mp3" | "Aac" | "Wav" | "Flac";
 export type ResizePreset = "Source" | "P720" | "P1080" | "Square720" | "Portrait1080x1920";
-export type ExecutionState = "Queued" | "Running" | "Succeeded" | "Failed";
+export type ExecutionState = "Queued" | "Running" | "Succeeded" | "Failed" | "Cancelled";
 
 export interface MediaMetadata {
   durationSeconds: number | null;

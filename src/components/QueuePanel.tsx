@@ -36,6 +36,8 @@ export function QueuePanel({ items, selectedId, onSelect }: QueuePanelProps) {
                   <span className={`rounded-full px-3 py-1 text-xs font-medium ${
                     item.state === "Succeeded"
                       ? "bg-emerald-400/15 text-emerald-200"
+                      : item.state === "Cancelled"
+                        ? "bg-slate-300/15 text-slate-200"
                       : item.state === "Failed"
                         ? "bg-rose-400/15 text-rose-200"
                         : item.state === "Running"

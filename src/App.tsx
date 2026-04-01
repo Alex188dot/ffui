@@ -32,7 +32,9 @@ function App() {
       events.onProgress((payload) => {
         setItems((current) =>
           current.map((item, index) =>
-            index === payload.index ? { ...item, progressPercent: payload.percent, state: "Running" } : item,
+            index === payload.index
+              ? { ...item, progressPercent: payload.percent ?? item.progressPercent, state: "Running" }
+              : item,
           ),
         );
       }),
@@ -42,7 +44,14 @@ function App() {
         );
         setItems((current) => {
           const next = current.map((item, index) =>
-            index === payload.index ? { ...item, state: payload.state, lastLog: payload.message } : item,
+            index === payload.index
+              ? {
+                  ...item,
+                  state: payload.state,
+                  lastLog: payload.message,
+                  progressPercent: payload.state === "Succeeded" ? 100 : item.progressPercent,
+                }
+              : item,
           );
           if (payload.index >= 0 && payload.state === "Succeeded") {
             setLastCompletedId(next[payload.index]?.id ?? null);
@@ -64,11 +73,46 @@ function App() {
 
   const selectedItem = items.find((item) => item.id === selectedId) ?? null;
   const lastCompletedItem = items.find((item) => item.id === lastCompletedId) ?? null;
-  const currentPercent = useMemo(() => {
-    if (items.length === 0) return null;
-    const values = items.map((item) => item.progressPercent ?? 0);
-    return values.reduce((sum, value) => sum + value, 0) / values.length;
-  }, [items]);
+  const progressSummary = useMemo(() => {
+    if (items.length === 0) {
+      return {
+        percent: null as number | null,
+        statusLabel: running ? "Running" : "Idle",
+        detailLabel: "Add files to start a queue.",
+      };
+    }
+
+    const completedCount = items.filter((item) =>
+      item.state === "Succeeded" || item.state === "Failed" || item.state === "Cancelled",
+    ).length;
+    const successfulCount = items.filter((item) => item.state === "Succeeded").length;
+    const failedCount = items.filter((item) => item.state === "Failed").length;
+    const cancelledCount = items.filter((item) => item.state === "Cancelled").length;
+    const runningItem = items.find((item) => item.state === "Running") ?? null;
+    const runningContribution = runningItem ? (runningItem.progressPercent ?? 0) / 100 : 0;
+    const percent = Math.min(100, ((completedCount + runningContribution) / items.length) * 100);
+
+    let statusLabel = "Idle";
+    if (running) statusLabel = "Running";
+    else if (cancelledCount > 0) statusLabel = "Cancelled";
+    else if (failedCount > 0) statusLabel = "Finished with errors";
+    else if (successfulCount === items.length) statusLabel = "Completed";
+
+    let detailLabel = `${completedCount} of ${items.length} items processed`;
+    if (runningItem) {
+      const currentIndex = items.findIndex((item) => item.id === runningItem.id) + 1;
+      const currentName = runningItem.config.input.path.split(/[\\/]/).pop() ?? "current file";
+      detailLabel = `Processing ${currentIndex} of ${items.length}: ${currentName}`;
+    } else if (cancelledCount > 0) {
+      detailLabel = `${successfulCount} succeeded, ${failedCount} failed, ${cancelledCount} cancelled`;
+    } else if (failedCount > 0) {
+      detailLabel = `${successfulCount} succeeded, ${failedCount} failed`;
+    } else if (successfulCount === items.length) {
+      detailLabel = `${successfulCount} of ${items.length} items completed`;
+    }
+
+    return { percent, statusLabel, detailLabel };
+  }, [items, running]);
 
   async function addFiles() {
     const selected = await open({
@@ -179,7 +223,9 @@ function App() {
         {showProgressFirst ? (
           <ProgressPanel
             isRunning={running}
-            percent={currentPercent}
+            percent={progressSummary.percent}
+            statusLabel={progressSummary.statusLabel}
+            detailLabel={progressSummary.detailLabel}
             logs={logs}
             completedItem={lastCompletedItem}
             onReset={resetRun}
@@ -201,7 +247,9 @@ function App() {
         {!showProgressFirst ? (
           <ProgressPanel
             isRunning={running}
-            percent={currentPercent}
+            percent={progressSummary.percent}
+            statusLabel={progressSummary.statusLabel}
+            detailLabel={progressSummary.detailLabel}
             logs={logs}
             completedItem={lastCompletedItem}
             onReset={resetRun}

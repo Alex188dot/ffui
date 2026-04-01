@@ -2,11 +2,14 @@ use crate::errors::AppError;
 use crate::models::{
     AudioFormat, ExecutionState, GeneratedCommand, InputKind, InputSource, JobConfig, JobType,
     LogPayload, MediaMetadata, OutputPlan, ProgressPayload, QualityProfile, QueueItemPreview,
-    ResizePreset, StatusPayload, ToolStatus, VideoFormat,
+    ResizePreset, StatusPayload, TargetProfile, ToolStatus, VideoFormat,
 };
 use crate::state::AppState;
 use serde::Deserialize;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -31,17 +34,28 @@ pub fn discover_tools() -> ToolStatus {
 
 pub async fn scan_paths(paths: Vec<String>) -> Result<Vec<QueueItemPreview>, AppError> {
     let mut items = Vec::new();
+    let mut reserved_outputs = HashSet::new();
     for path in paths {
         let discovered = discover_inputs(Path::new(&path))?;
         for input in discovered {
-            items.push(preview_for_config(default_config(input).await?)?);
+            items.push(preview_for_config_with_reserved(
+                default_config(input).await?,
+                &mut reserved_outputs,
+            )?);
         }
     }
     Ok(items)
 }
 
 pub fn preview_for_config(config: JobConfig) -> Result<QueueItemPreview, AppError> {
-    let output_plan = plan_output(&config);
+    preview_for_config_with_reserved(config, &mut HashSet::new())
+}
+
+fn preview_for_config_with_reserved(
+    config: JobConfig,
+    reserved_outputs: &mut HashSet<PathBuf>,
+) -> Result<QueueItemPreview, AppError> {
+    let output_plan = plan_output(&config, reserved_outputs);
     let command = build_command(&config, &output_plan);
     Ok(QueueItemPreview {
         id: Uuid::new_v4().to_string(),
@@ -56,13 +70,14 @@ pub fn preview_for_config(config: JobConfig) -> Result<QueueItemPreview, AppErro
 }
 
 pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), AppError> {
+    let mut reserved_outputs = HashSet::new();
     for (index, config) in configs.into_iter().enumerate() {
         if cancel_requested(&app)? {
             app.emit(
                 "ffui://job-status",
                 StatusPayload {
                     index: -1,
-                    state: ExecutionState::Failed,
+                    state: ExecutionState::Cancelled,
                     message: Some("Queue stopped".to_string()),
                 },
             )
@@ -80,7 +95,7 @@ pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), Ap
         )
         .ok();
 
-        let output = plan_output(&config);
+        let output = plan_output(&config, &mut reserved_outputs);
         let command = build_command(&config, &output);
         let mut child = Command::new(&command.program)
             .args(&command.args)
@@ -153,7 +168,7 @@ pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), Ap
                 "ffui://job-status",
                 StatusPayload {
                     index: index as i32,
-                    state: ExecutionState::Failed,
+                    state: ExecutionState::Cancelled,
                     message: Some("Stopped by user".to_string()),
                 },
             )
@@ -162,7 +177,7 @@ pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), Ap
                 "ffui://job-status",
                 StatusPayload {
                     index: -1,
-                    state: ExecutionState::Failed,
+                    state: ExecutionState::Cancelled,
                     message: Some("Queue stopped".to_string()),
                 },
             )
@@ -376,7 +391,7 @@ async fn probe(path: &str) -> Result<MediaMetadata, AppError> {
     Ok(metadata)
 }
 
-fn plan_output(config: &JobConfig) -> OutputPlan {
+fn plan_output(config: &JobConfig, reserved_outputs: &mut HashSet<PathBuf>) -> OutputPlan {
     let input_path = Path::new(&config.input.path);
     let stem = input_path
         .file_stem()
@@ -405,10 +420,13 @@ fn plan_output(config: &JobConfig) -> OutputPlan {
             VideoFormat::Gif => "gif",
         },
     };
-    let output_path = input_path
+    let output_path = reserve_output_path(
+        input_path
         .parent()
         .unwrap_or_else(|| Path::new("."))
-        .join(format!("{stem}-{suffix}.{ext}"));
+        .join(format!("{stem}-{suffix}.{ext}")),
+        reserved_outputs,
+    );
     OutputPlan {
         output_path: output_path.to_string_lossy().to_string(),
         extension: ext.to_string(),
@@ -418,7 +436,7 @@ fn plan_output(config: &JobConfig) -> OutputPlan {
 
 fn build_command(config: &JobConfig, output: &OutputPlan) -> GeneratedCommand {
     let mut args = vec![
-        "-y".to_string(),
+        "-n".to_string(),
         "-i".to_string(),
         config.input.path.clone(),
     ];
@@ -479,16 +497,20 @@ fn apply_video(args: &mut Vec<String>, config: &JobConfig) {
         VideoFormat::Mp4H264 => args.extend([
             "-c:v".to_string(),
             "libx264".to_string(),
+            "-pix_fmt".to_string(),
+            "yuv420p".to_string(),
             "-crf".to_string(),
-            crf(&config.quality).to_string(),
+            target_crf(config).to_string(),
             "-preset".to_string(),
             preset(&config.quality).to_string(),
         ]),
         VideoFormat::Mp4Hevc => args.extend([
             "-c:v".to_string(),
             "libx265".to_string(),
+            "-pix_fmt".to_string(),
+            "yuv420p".to_string(),
             "-crf".to_string(),
-            crf(&config.quality).to_string(),
+            target_crf(config).to_string(),
             "-preset".to_string(),
             preset(&config.quality).to_string(),
         ]),
@@ -501,18 +523,19 @@ fn apply_video(args: &mut Vec<String>, config: &JobConfig) {
         ResizePreset::Portrait1080x1920 => args.extend(["-vf".to_string(), "scale=1080:1920:force_original_aspect_ratio=decrease".to_string()]),
         ResizePreset::Source => {}
     }
+    apply_target_video_constraints(args, config);
     args.extend([
         "-c:a".to_string(),
         "aac".to_string(),
         "-b:a".to_string(),
-        format!("{}k", audio_bitrate(&config.quality)),
+        format!("{}k", target_audio_bitrate(config)),
     ]);
 }
 
 fn apply_audio(args: &mut Vec<String>, config: &JobConfig) {
     match config.audio_format {
-        AudioFormat::Mp3 => args.extend(["-c:a".to_string(), "libmp3lame".to_string(), "-b:a".to_string(), format!("{}k", config.audio_bitrate_kbps)]),
-        AudioFormat::Aac => args.extend(["-c:a".to_string(), "aac".to_string(), "-b:a".to_string(), format!("{}k", config.audio_bitrate_kbps)]),
+        AudioFormat::Mp3 => args.extend(["-c:a".to_string(), "libmp3lame".to_string(), "-b:a".to_string(), format!("{}k", target_audio_bitrate(config).min(config.audio_bitrate_kbps))]),
+        AudioFormat::Aac => args.extend(["-c:a".to_string(), "aac".to_string(), "-b:a".to_string(), format!("{}k", target_audio_bitrate(config).min(config.audio_bitrate_kbps))]),
         AudioFormat::Wav => args.extend(["-c:a".to_string(), "pcm_s16le".to_string()]),
         AudioFormat::Flac => args.extend(["-c:a".to_string(), "flac".to_string()]),
     }
@@ -544,6 +567,14 @@ fn crf(quality: &QualityProfile) -> u8 {
     }
 }
 
+fn target_crf(config: &JobConfig) -> u8 {
+    match config.target {
+        TargetProfile::Discord => crf(&config.quality).max(26),
+        TargetProfile::Email => crf(&config.quality).max(30),
+        _ => crf(&config.quality),
+    }
+}
+
 fn preset(quality: &QualityProfile) -> &'static str {
     match quality {
         QualityProfile::Best => "slow",
@@ -562,6 +593,37 @@ fn audio_bitrate(quality: &QualityProfile) -> u16 {
     }
 }
 
+fn target_audio_bitrate(config: &JobConfig) -> u32 {
+    let quality_default = u32::from(audio_bitrate(&config.quality));
+    match config.target {
+        TargetProfile::Discord => quality_default.min(128),
+        TargetProfile::Email => quality_default.min(96),
+        _ => quality_default,
+    }
+}
+
+fn apply_target_video_constraints(args: &mut Vec<String>, config: &JobConfig) {
+    if matches!(config.video_format, VideoFormat::Mp4H264 | VideoFormat::Mp4Hevc) {
+        args.extend(["-movflags".to_string(), "+faststart".to_string()]);
+    }
+
+    match config.target {
+        TargetProfile::Discord => args.extend([
+            "-maxrate".to_string(),
+            "2500k".to_string(),
+            "-bufsize".to_string(),
+            "5000k".to_string(),
+        ]),
+        TargetProfile::Email => args.extend([
+            "-maxrate".to_string(),
+            "1500k".to_string(),
+            "-bufsize".to_string(),
+            "3000k".to_string(),
+        ]),
+        _ => {}
+    }
+}
+
 fn parse_progress_line(
     line: &str,
     total_duration: Option<f64>,
@@ -576,5 +638,38 @@ fn parse_progress_line(
         }
         "speed" => Some((None, value.trim_end_matches('x').parse().ok(), None)),
         _ => None,
+    }
+}
+
+fn reserve_output_path(base_output_path: PathBuf, reserved_outputs: &mut HashSet<PathBuf>) -> PathBuf {
+    if !base_output_path.exists() && !reserved_outputs.contains(&base_output_path) {
+        reserved_outputs.insert(base_output_path.clone());
+        return base_output_path;
+    }
+
+    let parent = base_output_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .to_path_buf();
+    let stem = base_output_path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("output");
+    let extension = base_output_path
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(ToString::to_string);
+
+    let mut index = 2;
+    loop {
+        let candidate = match &extension {
+            Some(extension) => parent.join(format!("{stem}-{index}.{extension}")),
+            None => parent.join(format!("{stem}-{index}")),
+        };
+        if !candidate.exists() && !reserved_outputs.contains(&candidate) {
+            reserved_outputs.insert(candidate.clone());
+            return candidate;
+        }
+        index += 1;
     }
 }

@@ -126,6 +126,7 @@ pub enum ExecutionState {
     Running,
     Succeeded,
     Failed,
+    Cancelled,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
