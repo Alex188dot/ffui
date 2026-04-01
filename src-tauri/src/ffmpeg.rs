@@ -23,7 +23,7 @@ pub fn discover_tools() -> ToolStatus {
     match (ffmpeg, ffprobe) {
         (Some(_), Some(_)) => ToolStatus {
             ready: true,
-            message: "ffmpeg and ffprobe are available in PATH.".to_string(),
+            message: "ffmpeg and ffprobe are available in PATH".to_string(),
         },
         _ => ToolStatus {
             ready: false,
@@ -78,6 +78,7 @@ fn preview_for_config_with_reserved(
 }
 
 pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), AppError> {
+    let ffmpeg_binary = resolve_required_binary("ffmpeg")?;
     let mut reserved_outputs = HashSet::new();
     for (index, config) in configs.into_iter().enumerate() {
         if cancel_requested(&app)? {
@@ -105,7 +106,7 @@ pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), Ap
 
         let output = plan_output(&config, &mut reserved_outputs);
         let command = build_command(&config, &output);
-        let mut child = Command::new(&command.program)
+        let mut child = Command::new(&ffmpeg_binary)
             .args(&command.args)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -326,10 +327,53 @@ fn detect_kind(path: &Path) -> Result<InputKind, AppError> {
 }
 
 fn resolve_binary(name: &str) -> Option<PathBuf> {
-    std::env::var_os("PATH").and_then(|paths| {
-        std::env::split_paths(&paths)
-            .map(|path| path.join(name))
-            .find(|candidate| candidate.exists())
+    let mut candidates = Vec::new();
+
+    if let Some(paths) = std::env::var_os("PATH") {
+        candidates.extend(std::env::split_paths(&paths));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        candidates.extend([
+            PathBuf::from("/opt/homebrew/bin"),
+            PathBuf::from("/usr/local/bin"),
+            PathBuf::from("/opt/local/bin"),
+            PathBuf::from("/usr/bin"),
+            PathBuf::from("/bin"),
+        ]);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        candidates.extend([
+            PathBuf::from("/usr/local/bin"),
+            PathBuf::from("/usr/bin"),
+            PathBuf::from("/bin"),
+            PathBuf::from("/snap/bin"),
+        ]);
+    }
+
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = PathBuf::from(home);
+        candidates.extend([
+            home.join(".local/bin"),
+            home.join("bin"),
+        ]);
+    }
+
+    candidates.dedup();
+    candidates
+        .into_iter()
+        .map(|path| path.join(name))
+        .find(|candidate| candidate.is_file())
+}
+
+fn resolve_required_binary(name: &str) -> Result<PathBuf, AppError> {
+    resolve_binary(name).ok_or_else(|| {
+        AppError::Config(format!(
+            "{name} was not found. Install it first. macOS: brew install ffmpeg. Ubuntu/Debian: sudo apt install ffmpeg."
+        ))
     })
 }
 
@@ -354,7 +398,8 @@ struct ProbeFormat {
 }
 
 async fn probe(path: &str) -> Result<MediaMetadata, AppError> {
-    let output = Command::new("ffprobe")
+    let ffprobe_binary = resolve_required_binary("ffprobe")?;
+    let output = Command::new(ffprobe_binary)
         .arg("-v")
         .arg("error")
         .arg("-show_streams")

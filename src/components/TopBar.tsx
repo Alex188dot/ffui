@@ -11,7 +11,16 @@ interface TopBarProps {
   canSavePreset: boolean;
 }
 
-export function TopBar({ toolStatus, onAddFiles, onAddFolder, onRunOrStop, onSavePreset, isRunning, canRun, canSavePreset }: TopBarProps) {
+export function TopBar({
+  toolStatus,
+  onAddFiles,
+  onAddFolder,
+  onRunOrStop,
+  onSavePreset,
+  isRunning,
+  canRun,
+  canSavePreset,
+}: TopBarProps) {
   return (
     <header className="relative overflow-hidden rounded-[36px] border border-white/15 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.22),_transparent_35%),radial-gradient(circle_at_top_right,_rgba(251,146,60,0.2),_transparent_28%),linear-gradient(135deg,rgba(15,23,42,0.92),rgba(49,46,129,0.78))] p-8 text-white shadow-[0_30px_120px_-40px_rgba(14,116,144,0.75)]">
       <div className="absolute inset-y-0 right-[-6rem] w-72 rounded-full bg-pink-500/10 blur-3xl" />
@@ -20,17 +29,24 @@ export function TopBar({ toolStatus, onAddFiles, onAddFolder, onRunOrStop, onSav
           <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-200">
             ffui desktop
           </div>
-          <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Turn messy media conversions into something fast, visual, and actually fun.
+          <h1 className="mt-5 text-[2.15rem] font-semibold tracking-tight sm:text-[2.85rem]">
+            Turn messy media conversions into something fast, visual, and
+            actually fun
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-200/85 sm:text-base">
-            Drop in your files, pick a preset, and turn videos, audio, and clips into polished exports in seconds.
+            Drop in your files, pick a preset, and turn videos, audio, and clips
+            into polished exports in seconds
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <ActionButton icon="🎞️" label="Add Files" onClick={onAddFiles} />
           <ActionButton icon="📁" label="Add Folder" onClick={onAddFolder} />
-          <ActionButton icon="💾" label="Save Preset" onClick={onSavePreset} disabled={!canSavePreset} />
+          <ActionButton
+            icon="💾"
+            label="Save Preset"
+            onClick={onSavePreset}
+            disabled={!canSavePreset}
+          />
           <ActionButton
             icon={isRunning ? "🛑" : "🚀"}
             label={isRunning ? "Stop Queue" : "Run Queue"}
@@ -82,8 +98,12 @@ function ActionButton({
       }`}
     >
       <span className="flex flex-col items-center justify-center gap-2 text-center">
-        <span className="text-2xl leading-none transition group-hover:scale-110">{icon}</span>
-        <span className="text-base font-semibold tracking-[-0.02em]">{label}</span>
+        <span className="text-2xl leading-none transition group-hover:scale-110">
+          {icon}
+        </span>
+        <span className="text-base font-semibold tracking-[-0.02em]">
+          {label}
+        </span>
       </span>
     </button>
   );
