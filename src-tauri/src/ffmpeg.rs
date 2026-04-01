@@ -4,9 +4,10 @@ use crate::models::{
     LogPayload, MediaMetadata, OutputPlan, ProgressPayload, QualityProfile, QueueItemPreview,
     ResizePreset, StatusPayload, ToolStatus, VideoFormat,
 };
+use crate::state::AppState;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
@@ -56,6 +57,19 @@ pub fn preview_for_config(config: JobConfig) -> Result<QueueItemPreview, AppErro
 
 pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), AppError> {
     for (index, config) in configs.into_iter().enumerate() {
+        if cancel_requested(&app)? {
+            app.emit(
+                "ffui://job-status",
+                StatusPayload {
+                    index: -1,
+                    state: ExecutionState::Failed,
+                    message: Some("Queue stopped".to_string()),
+                },
+            )
+            .ok();
+            return Ok(());
+        }
+
         app.emit(
             "ffui://job-status",
             StatusPayload {
@@ -73,6 +87,15 @@ pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), Ap
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()?;
+
+        {
+            let app_state = app.state::<AppState>();
+            let mut current_pid = app_state
+                .current_pid
+                .lock()
+                .map_err(|_| AppError::Config("failed to lock app state".to_string()))?;
+            *current_pid = child.id();
+        }
 
         if let Some(stdout) = child.stdout.take() {
             let app_handle = app.clone();
@@ -116,6 +139,37 @@ pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), Ap
         }
 
         let status = child.wait().await?;
+        {
+            let app_state = app.state::<AppState>();
+            let mut current_pid = app_state
+                .current_pid
+                .lock()
+                .map_err(|_| AppError::Config("failed to lock app state".to_string()))?;
+            *current_pid = None;
+        }
+
+        if cancel_requested(&app)? {
+            app.emit(
+                "ffui://job-status",
+                StatusPayload {
+                    index: index as i32,
+                    state: ExecutionState::Failed,
+                    message: Some("Stopped by user".to_string()),
+                },
+            )
+            .ok();
+            app.emit(
+                "ffui://job-status",
+                StatusPayload {
+                    index: -1,
+                    state: ExecutionState::Failed,
+                    message: Some("Queue stopped".to_string()),
+                },
+            )
+            .ok();
+            return Ok(());
+        }
+
         let state = if status.success() {
             ExecutionState::Succeeded
         } else {
@@ -144,6 +198,33 @@ pub async fn run_queue(app: AppHandle, configs: Vec<JobConfig>) -> Result<(), Ap
     .ok();
 
     Ok(())
+}
+
+pub fn stop_process(pid: u32) -> Result<(), AppError> {
+    #[cfg(target_os = "windows")]
+    let status = std::process::Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .status()?;
+
+    #[cfg(not(target_os = "windows"))]
+    let status = std::process::Command::new("kill")
+        .args(["-TERM", &pid.to_string()])
+        .status()?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(AppError::Ffmpeg(format!("failed to stop ffmpeg process {pid}")))
+    }
+}
+
+fn cancel_requested(app: &AppHandle) -> Result<bool, AppError> {
+    let app_state = app.state::<AppState>();
+    let cancel_requested = app_state
+        .cancel_requested
+        .lock()
+        .map_err(|_| AppError::Config("failed to lock app state".to_string()))?;
+    Ok(*cancel_requested)
 }
 
 async fn default_config(mut input: InputSource) -> Result<JobConfig, AppError> {

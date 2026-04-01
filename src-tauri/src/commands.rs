@@ -54,11 +54,24 @@ pub async fn run_queue(
         *running = true;
     }
 
+    {
+        let app_state = app.state::<AppState>();
+        if let Ok(mut cancel_requested) = app_state.cancel_requested.lock() {
+            *cancel_requested = false;
+        };
+    }
+
     tauri::async_runtime::spawn(async move {
         let result = ffmpeg::run_queue(app.clone(), configs).await;
         let app_state = app.state::<AppState>();
         if let Ok(mut running) = app_state.running.lock() {
             *running = false;
+        }
+        if let Ok(mut cancel_requested) = app_state.cancel_requested.lock() {
+            *cancel_requested = false;
+        }
+        if let Ok(mut current_pid) = app_state.current_pid.lock() {
+            *current_pid = None;
         }
         if let Err(error) = result {
             app.emit(
@@ -72,6 +85,44 @@ pub async fn run_queue(
             .ok();
         }
     });
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn stop_queue(app: AppHandle) -> Result<(), String> {
+    let app_state = app.state::<AppState>();
+    let is_running = {
+        let running = app_state
+            .running
+            .lock()
+            .map_err(|_| AppError::Config("failed to lock app state".to_string()))?;
+        *running
+    };
+
+    if !is_running {
+        return Ok(());
+    }
+
+    {
+        let mut cancel_requested = app_state
+            .cancel_requested
+            .lock()
+            .map_err(|_| AppError::Config("failed to lock app state".to_string()))?;
+        *cancel_requested = true;
+    }
+
+    let pid = {
+        let current_pid = app_state
+            .current_pid
+            .lock()
+            .map_err(|_| AppError::Config("failed to lock app state".to_string()))?;
+        *current_pid
+    };
+
+    if let Some(pid) = pid {
+        ffmpeg::stop_process(pid).map_err(String::from)?;
+    }
 
     Ok(())
 }

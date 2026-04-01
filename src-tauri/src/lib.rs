@@ -19,7 +19,8 @@ pub fn run() {
             commands::refresh_preview,
             commands::save_user_preset,
             commands::delete_user_preset,
-            commands::run_queue
+            commands::run_queue,
+            commands::stop_queue
         ])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {

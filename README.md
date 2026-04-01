@@ -30,6 +30,23 @@ It is built for the moments where you want more confidence than a one-off shell 
 - Run jobs sequentially and stream progress/log events into the UI
 - Keep the desktop workflow focused while still exposing technical details when you want them
 
+## Presets
+
+| Preset | Job type | Quality | Target | Video format | Audio format | Resize |
+| --- | --- | --- | --- | --- | --- | --- |
+| Web MP4 | Video Convert | Good | Web | MP4 H.264 | MP3 | 1920x1080 |
+| Small MP4 | Compress for Sharing | Smallest file | Email | MP4 H.264 | MP3 | 1280x720 |
+| High Quality MP4 | Video Convert | Best quality | Play everywhere | MP4 H.264 | AAC | 1920x1080 |
+| HEVC Smaller File | Video Convert | Good | Apple | MP4 HEVC | AAC | 1920x1080 |
+| MP3 | Audio Convert | Good | Play everywhere | MP4 H.264 | MP3 | Source size |
+| AAC | Audio Convert | Good | Apple | MP4 H.264 | AAC | Source size |
+| WAV | Audio Convert | Best quality | Play everywhere | MP4 H.264 | WAV | Source size |
+| FLAC | Audio Convert | Best quality | Play everywhere | MP4 H.264 | FLAC | Source size |
+| Discord Upload | Compress for Sharing | Smallest file | Discord | MP4 H.264 | AAC | 1280x720 |
+| Email Attachment | Compress for Sharing | Smallest file | Email | MP4 H.264 | AAC | 1280x720 |
+| Just Play Everywhere | Video Convert | Good | Play everywhere | MP4 H.264 | AAC | 1920x1080 |
+| GIF Clip | Make GIF | Good | Web | GIF | MP3 | 1280x720 |
+
 ## 🚀 Run It
 
 Install dependencies:
@@ -55,6 +72,14 @@ Check the Rust/Tauri backend:
 ```bash
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
+
+Build an installable desktop app:
+
+```bash
+npx tauri build
+```
+
+On macOS, the packaged app will be produced under `src-tauri/target/release/bundle/`.
 
 ## 🧰 Requirements
 

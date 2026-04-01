@@ -108,7 +108,20 @@ function App() {
     setLastCompletedId(null);
     setHasLaunchedRun(true);
     setRunning(true);
-    await api.runQueue(items.map((item) => item.config));
+    try {
+      await api.runQueue(items.map((item) => item.config));
+    } catch (error) {
+      setRunning(false);
+      setLogs((current) => [`Failed to start queue: ${String(error)}`, ...current].slice(0, 60));
+    }
+  }
+
+  async function stopQueue() {
+    try {
+      await api.stopQueue();
+    } catch (error) {
+      setLogs((current) => [`Failed to stop queue: ${String(error)}`, ...current].slice(0, 60));
+    }
   }
 
   async function updateSelected(config: JobConfig) {
@@ -157,9 +170,10 @@ function App() {
           toolStatus={bootstrap?.toolStatus ?? null}
           onAddFiles={() => void addFiles()}
           onAddFolder={() => void addFolder()}
-          onRun={() => void runQueue()}
+          onRunOrStop={() => void (running ? stopQueue() : runQueue())}
           onSavePreset={() => void savePreset()}
           isRunning={running}
+          canRun={items.length > 0}
         />
 
         {showProgressFirst ? (

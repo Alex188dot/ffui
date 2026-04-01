@@ -18,6 +18,7 @@ export const api = {
     invoke<UserPreset[]>("save_user_preset", { name, config }),
   deleteUserPreset: (id: string) => invoke<UserPreset[]>("delete_user_preset", { id }),
   runQueue: (configs: JobConfig[]) => invoke<void>("run_queue", { configs }),
+  stopQueue: () => invoke<void>("stop_queue"),
 };
 
 export const events = {
