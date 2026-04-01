@@ -17,6 +17,7 @@ pub fn run() {
             commands::bootstrap,
             commands::scan_paths,
             commands::refresh_preview,
+            commands::rebuild_previews,
             commands::save_user_preset,
             commands::delete_user_preset,
             commands::run_queue,

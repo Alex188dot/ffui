@@ -28,6 +28,11 @@ pub async fn refresh_preview(config: JobConfig) -> Result<QueueItemPreview, Stri
 }
 
 #[tauri::command]
+pub async fn rebuild_previews(configs: Vec<JobConfig>) -> Result<Vec<QueueItemPreview>, String> {
+    ffmpeg::rebuild_previews(configs).map_err(String::from)
+}
+
+#[tauri::command]
 pub async fn save_user_preset(name: String, config: JobConfig) -> Result<Vec<UserPreset>, String> {
     storage::save_user_preset(presets::make_user_preset(name, config)).map_err(String::from)
 }

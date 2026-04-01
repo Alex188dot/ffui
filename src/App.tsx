@@ -128,7 +128,7 @@ function App() {
     const paths = normalizeSelection(selected);
     if (paths.length === 0) return;
     const next = await api.scanPaths(paths);
-    appendItems(next);
+    await appendItems(next);
   }
 
   async function addFolder() {
@@ -136,7 +136,7 @@ function App() {
     const paths = normalizeSelection(selected);
     if (paths.length === 0) return;
     const next = await api.scanPaths(paths);
-    appendItems(next);
+    await appendItems(next);
   }
 
   async function savePreset() {
@@ -170,30 +170,34 @@ function App() {
 
   async function updateSelected(config: JobConfig) {
     if (!selectedItem) return;
-    const refreshed = await api.refreshPreview(config);
-    setItems((current) =>
-      current.map((item) =>
-        item.id === selectedItem.id
-          ? {
-              ...refreshed,
-              id: item.id,
-              state: item.state,
-              progressPercent: item.progressPercent,
-              lastLog: item.lastLog,
-            }
-          : item,
-      ),
+    const nextItems = items.map((item) =>
+      item.id === selectedItem.id
+        ? {
+            ...item,
+            config,
+          }
+        : item,
     );
+    await replanQueue(nextItems);
   }
 
-  function appendItems(next: QueueItemPreview[]) {
-    setItems((current) => {
-      const merged = [...current, ...next];
-      if (!selectedId && merged[0]) {
-        setSelectedId(merged[0].id);
-      }
-      return merged;
-    });
+  async function appendItems(next: QueueItemPreview[]) {
+    const merged = [...items, ...next];
+    await replanQueue(merged);
+  }
+
+  async function replanQueue(nextItems: QueueItemPreview[]) {
+    const rebuilt = await api.rebuildPreviews(nextItems.map((item) => item.config));
+    setItems(
+      rebuilt.map((item, index) => ({
+        ...item,
+        id: nextItems[index]?.id ?? item.id,
+        state: nextItems[index]?.state ?? item.state,
+        progressPercent: nextItems[index]?.progressPercent ?? item.progressPercent,
+        lastLog: nextItems[index]?.lastLog ?? item.lastLog,
+      })),
+    );
+    setSelectedId((current) => current ?? nextItems[0]?.id ?? null);
   }
 
   function resetRun() {

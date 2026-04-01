@@ -55,7 +55,15 @@ Install dependencies:
 npm install --cache .npm-cache
 ```
 
-Start the desktop app in development:
+Build an installable desktop app first:
+
+```bash
+npx tauri build
+```
+
+On macOS, the packaged app will be produced under `src-tauri/target/release/bundle/`.
+
+For day-to-day development, start the desktop app in dev mode:
 
 ```bash
 npm run tauri dev
@@ -72,14 +80,6 @@ Check the Rust/Tauri backend:
 ```bash
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
-
-Build an installable desktop app:
-
-```bash
-npx tauri build
-```
-
-On macOS, the packaged app will be produced under `src-tauri/target/release/bundle/`.
 
 ## 🧰 Requirements
 

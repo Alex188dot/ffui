@@ -14,6 +14,7 @@ export const api = {
   bootstrap: () => invoke<BootstrapPayload>("bootstrap"),
   scanPaths: (paths: string[]) => invoke<QueueItemPreview[]>("scan_paths", { paths }),
   refreshPreview: (config: JobConfig) => invoke<QueueItemPreview>("refresh_preview", { config }),
+  rebuildPreviews: (configs: JobConfig[]) => invoke<QueueItemPreview[]>("rebuild_previews", { configs }),
   saveUserPreset: (name: string, config: JobConfig) =>
     invoke<UserPreset[]>("save_user_preset", { name, config }),
   deleteUserPreset: (id: string) => invoke<UserPreset[]>("delete_user_preset", { id }),

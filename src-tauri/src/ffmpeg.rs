@@ -51,6 +51,14 @@ pub fn preview_for_config(config: JobConfig) -> Result<QueueItemPreview, AppErro
     preview_for_config_with_reserved(config, &mut HashSet::new())
 }
 
+pub fn rebuild_previews(configs: Vec<JobConfig>) -> Result<Vec<QueueItemPreview>, AppError> {
+    let mut reserved_outputs = HashSet::new();
+    configs
+        .into_iter()
+        .map(|config| preview_for_config_with_reserved(config, &mut reserved_outputs))
+        .collect()
+}
+
 fn preview_for_config_with_reserved(
     config: JobConfig,
     reserved_outputs: &mut HashSet<PathBuf>,
